@@ -22,9 +22,9 @@ app.use("/api/v1",Order);
  
 
 // creating Port
-// app.get("/", (req, res) => {
-//     res.send("Hello from backend side")
-// });
+app.get("/", (req, res) => {
+    res.send("Hello from backend side")
+});
 // creating Port
 app.listen(process.env.PORT, () => {
     console.log(`Server Started ${process.env.PORT}`);
