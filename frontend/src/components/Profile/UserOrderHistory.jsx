@@ -77,18 +77,22 @@ const UserOrderHistory = () => {
               <h1 className='text-center'>{i + 1}</h1>
             </div>
             <div className='w-[22%]'>
+              {items.book ? (
               <Link 
               to={`/view-book-details/${items.book._id}`} 
               className="hover:text-blue-300"
               >
                 {items.book.title}
-              </Link>
+              </Link> ) : (
+                 <span className="text-red-400 italic">Book not available</span>
+              )
+}
             </div>
             <div className='w-[45%]'>
-              <h1 className=''>{items.book.desc.slice(0,50)} ...</h1>
+              <h1 className=''>{items?.book?.desc?.slice(0,50) || "No description"} ...</h1>
             </div>
             <div className='w-[9%]'>
-              <h1 className=''> {items.book.price}</h1>
+              <h1 className=''> {items?.book?.price || "N/A"}</h1>
             </div>
             <div className='w-[16%]'>
             

@@ -271,15 +271,24 @@ const AllOrders = () => {
                 <h1 className="text-center">{i + 1}</h1>
               </div>
               <div className="w-[40%] md:w-[22%]">
-                <Link to={`/view-book-details/${order.book._id}`}>
+                {/* <Link to={`/view-book-details/${order.book._id}`}>
                   {order.book.title}
-                </Link>
+                </Link> */}
+                {order.book ? (
+  <Link to={`/view-book-details/${order.book._id}`}>
+    {order.book.title}
+  </Link>
+) : (
+  <span className="text-red-400 italic">Book not available</span>
+)}
               </div>
               <div className="w-0 md:w-[45%] hidden md:block">
-                <h1>{order.book.desc.slice(0, 50)} ...</h1>
+                {/* <h1>{order.book.desc.slice(0, 50)} ...</h1> */}
+                <h1>{order.book?.desc?.slice(0, 50) || "No description"} ...</h1>
               </div>
               <div className="w-[17%] md:w-[9%]">
-                <h1>{order.book.price}</h1>
+                {/* <h1>{order.book.price}</h1> */}
+                <h1>{order.book?.price || "N/A"}</h1>
               </div>
               <div className="w-[30%] md:w-[16%]">
                 <h1 className="font-semibold">
