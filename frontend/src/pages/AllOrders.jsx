@@ -185,7 +185,7 @@ const AllOrders = () => {
   const fetchOrders = async () => {
     try {
       const response = await axios.get(
-        'http://localhost:1000/api/v1/get-all-orders',
+       `${import.meta.env.VITE_API_BASE_URL}/api/v1/get-all-orders`,
         { headers }
       );
       setAllOrders(response.data.data);
@@ -208,7 +208,7 @@ const AllOrders = () => {
     const id = allOrders[i]._id; // Using allOrders here instead of OrderHistory
     try {
       const response = await axios.put(
-        `http://localhost:1000/api/v1/update-status/${id}`,
+        `${import.meta.env.VITE_API_BASE_URL}/api/v1/update-status/${id}`,
         values,
         { headers }
       );

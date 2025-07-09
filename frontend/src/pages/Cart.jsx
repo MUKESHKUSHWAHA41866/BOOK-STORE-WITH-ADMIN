@@ -286,7 +286,7 @@ const Cart = () => {
   useEffect(() => {
     const fetchCart = async () => {
       try {
-        const res = await axios.get("http://localhost:1000/api/v1/get-user-cart", { headers });
+        const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/v1/get-user-cart`, { headers });
         setCart(res.data.data);
       } catch (error) {
         console.error("Error fetching cart:", error);
@@ -299,7 +299,7 @@ const Cart = () => {
 
   const deleteItem = async (bookId) => {
     try {
-      const response = await axios.put(`http://localhost:1000/api/v1/remove-from-cart/${bookId}`, {}, { headers });
+      const response = await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/v1/remove-from-cart/${bookId}`, {}, { headers });
       alert(response.data.message);
       setCart(prevCart => prevCart.filter(item => item._id !== bookId));
     } catch (error) {
@@ -317,7 +317,7 @@ const Cart = () => {
 
   const placeOrder = async () => {
     try {
-      const response = await axios.post(`http://localhost:1000/api/v1/place-order`, { order: cart }, { headers });
+      const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/v1/place-order`, { order: cart }, { headers });
       alert(response.data.message);
       navigate("/profile/orderHistory");
     } catch (error) {

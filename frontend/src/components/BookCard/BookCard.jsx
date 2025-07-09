@@ -11,10 +11,15 @@ const BookCard = ({data, favourite }) => {
     };
     const handleRemoveBook = async () => {
       const response = await axios.put(
-        "http://localhost:1000/api/v1/remove-book-from-favurite", 
+        `${import.meta.env.VITE_API_BASE_URL}/api/v1/remove-book-from-favurite`, 
         {},{headers}
       );
       alert(response.data.message);
+      // const response = await axios.put(
+      //   "http://localhost:1000/api/v1/remove-book-from-favurite", 
+      //   {},{headers}
+      // );
+      // alert(response.data.message);
       
     }
      
