@@ -1,19 +1,55 @@
 const mongoose = require("mongoose");
-const user = require("./user");
 
-const order = new mongoose.Schema({
-   user: {
-    type: mongoose.Types.ObjectId,
-    ref: "user",
-   },
-   book: {
-    type: mongoose.Types.ObjectId,
-    ref: "books",
-   },
-   status: {
-    type: String,
-    default: "Order placed",
-    enum: ["Order placed", "Out for delivery, Delivered , Canceled"],
-   }, 
-},{timestamps: true});
-module.exports = mongoose.model("order", order);
+const STATUS_ENUM = [
+  "Order Placed",
+  "Confirmed",
+  "Packed",
+  "Shipped",
+  "Out for Delivery",
+  "Delivered",
+  "Canceled",
+];
+
+const statusHistorySchema = new mongoose.Schema(
+  {
+    status: { type: String, enum: STATUS_ENUM, required: true },
+    timestamp: { type: Date, default: Date.now },
+    note: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
+const orderSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Types.ObjectId,
+      ref: "user",
+      required: true,
+    },
+    book: {
+      type: mongoose.Types.ObjectId,
+      ref: "books",
+      required: true,
+    },
+    quantity: {
+      type: Number,
+      default: 1,
+      min: [1, "Quantity must be at least 1"],
+    },
+    status: {
+      type: String,
+      default: "Order Placed",
+      enum: STATUS_ENUM,
+    },
+    // Timeline history — each status change is recorded here
+    statusHistory: {
+      type: [statusHistorySchema],
+      default: function () {
+        return [{ status: "Order Placed", timestamp: new Date() }];
+      },
+    },
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("order", orderSchema);

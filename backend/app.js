@@ -2,30 +2,110 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 require("dotenv").config();
-require("./connection/connection");
-const user = require("./routes/user");
-const Books = require("./routes/book");
-const Favourite = require("./routes/favourite");
-const Cart = require("./routes/cart");
-const Order = require("./routes/order");
+const logger = require("./utils/logger");
 
- app.use(cors());
-app.use(express.json());
-
-// routes
-
-app.use("/api/v1", user);
-app.use("/api/v1", Books);
-app.use("/api/v1",Favourite);
-app.use("/api/v1",Cart);
-app.use("/api/v1",Order);
- 
-
-// creating Port
-app.get("/", (req, res) => {
-    res.send("Hello from backend side")
+// ─── Validate critical environment variables on startup ────────────────────────
+const requiredEnvVars = ["PORT", "URI_MON", "JWT_SECRET", "EMAIL_USER", "EMAIL_PASS"];
+requiredEnvVars.forEach((envVar) => {
+  if (!process.env[envVar]) {
+    logger.error(`Missing required environment variable: ${envVar}`);
+    process.exit(1);
+  }
 });
-// creating Port
+
+// Prevent process from crashing on unhandled async errors
+process.on("unhandledRejection", (reason, promise) => {
+  logger.error("Unhandled Rejection at:", promise, "reason:", reason);
+});
+
+process.on("uncaughtException", (error) => {
+  logger.error("Uncaught Exception:", error);
+  // Optional: process.exit(1) if you want it to restart via PM2/Docker
+});
+
+require("./connection/connection");
+
+// ─── Route Imports ────────────────────────────────────────────────────────────
+const userRoutes = require("./routes/user");
+const bookRoutes = require("./routes/book");
+const favouriteRoutes = require("./routes/favourite");
+const cartRoutes = require("./routes/cart");
+const orderRoutes = require("./routes/order");
+const reviewRoutes = require("./routes/review");       // Phase 2
+const analyticsRoutes = require("./routes/analytics"); // Phase 2
+
+const cookieParser = require("cookie-parser");
+const helmet = require("helmet");
+const morgan = require("morgan");
+const rateLimit = require("express-rate-limit");
+
+// ─── Middleware ───────────────────────────────────────────────────────────────
+app.use(helmet());
+app.use(morgan("combined", { stream: logger.stream }));
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // limit each IP to 1000 requests per windowMs (Increased for Dev)
+  message: "Too many requests from this IP, please try again after 15 minutes",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(limiter);
+
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization", "id", "bookid"],
+  })
+);
+app.use(express.json());
+app.use(cookieParser());
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
+app.use("/api/v1", userRoutes);
+app.use("/api/v1", bookRoutes);
+app.use("/api/v1", favouriteRoutes);
+app.use("/api/v1", cartRoutes);
+app.use("/api/v1", orderRoutes);
+app.use("/api/v1", reviewRoutes);
+app.use("/api/v1", analyticsRoutes);
+app.use("/api/v1", require("./routes/audit"));
+app.use("/api/v1", require("./routes/upload"));
+
+// ─── Health Check ─────────────────────────────────────────────────────────────
+app.get("/", (req, res) => {
+  res.json({ status: "ok", message: "BookHeaven API is running", version: "2.0" });
+});
+
+// ─── Global Error Handler ─────────────────────────────────────────────────────
+app.use((err, req, res, next) => {
+  const isProduction = process.env.NODE_ENV === "production";
+  console.error(`[${new Date().toISOString()}] ERROR:`, err.message);
+  if (!isProduction) console.error(err.stack);
+
+  if (err.name === "ValidationError") {
+    const messages = Object.values(err.errors).map((e) => e.message);
+    return res.status(400).json({ message: messages.join(", ") });
+  }
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyValue || {})[0] || "field";
+    return res.status(400).json({ message: `${field} already exists` });
+  }
+  if (err.name === "CastError") {
+    return res.status(400).json({ message: "Invalid ID format" });
+  }
+  if (err.name === "JsonWebTokenError") {
+    return res.status(403).json({ message: "Invalid token" });
+  }
+
+  return res.status(err.statusCode || 500).json({
+    message: isProduction ? "Something went wrong" : err.message,
+  });
+});
+
+// ─── Start Server ─────────────────────────────────────────────────────────────
 app.listen(process.env.PORT, () => {
-    console.log(`Server Started ${process.env.PORT}`);
+  console.log(`✅ BookHeaven v2.0 started on port ${process.env.PORT}`);
 });
