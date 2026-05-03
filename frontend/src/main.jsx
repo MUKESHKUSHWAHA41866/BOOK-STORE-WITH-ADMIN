@@ -6,6 +6,7 @@ import { Toaster } from "react-hot-toast";
 import { HelmetProvider } from "react-helmet-async";
 import App from "./App.jsx";
 import { ThemeProvider } from "./context/ThemeContext.jsx";
+import { SocketProvider } from "./context/SocketContext.jsx";
 import store from "./store/index.js";
 import "./index.css";
 
@@ -33,7 +34,9 @@ createRoot(document.getElementById("root")).render(
             }}
           />
           <ThemeProvider>
-            <App />
+            <SocketProvider>
+              <App />
+            </SocketProvider>
           </ThemeProvider>
         </HelmetProvider>
       </Provider>

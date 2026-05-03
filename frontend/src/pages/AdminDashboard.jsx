@@ -3,26 +3,27 @@ import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { FiTrendingUp, FiShoppingBag, FiUsers, FiBook, FiDownload, FiCalendar } from "react-icons/fi";
+import { FiTrendingUp, FiShoppingBag, FiUsers, FiBook, FiDownload, FiCalendar, FiAlertTriangle } from "react-icons/fi";
 import toast from "react-hot-toast";
 import api from "../api";
 import { motion } from "framer-motion";
+import useRetry from "../hooks/useRetry";
 
 const COLORS = ["#3b82f6", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
 
 const AdminDashboard = () => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(30);
 
+  const fetchAnalytics = React.useCallback(async (d) => {
+    const res = await api.get(`/api/v1/admin/analytics?days=${d}`);
+    return res.data.data;
+  }, []);
+
+  const { data, loading, error, execute, retry } = useRetry(fetchAnalytics);
+
   useEffect(() => {
-    setLoading(true);
-    api
-      .get(`/api/v1/admin/analytics?days=${days}`)
-      .then((res) => setData(res.data.data))
-      .catch(() => toast.error("Failed to load analytics"))
-      .finally(() => setLoading(false));
-  }, [days]);
+    execute(days);
+  }, [days, execute]);
 
   const exportToCSV = () => {
     if (!data) return;
@@ -56,6 +57,25 @@ const AdminDashboard = () => {
   };
 
   if (loading) return <DashboardSkeleton />;
+  if (error) {
+    return (
+      <div className="h-[70vh] flex flex-col items-center justify-center text-center p-8 bg-white dark:bg-zinc-900 transition-colors">
+        <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center text-red-500 mb-6">
+          <FiAlertTriangle size={40} />
+        </div>
+        <h2 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 mb-2">Analytics Unavailable</h2>
+        <p className="text-zinc-500 dark:text-zinc-400 max-w-md mb-8">
+          We couldn't load the dashboard data. This might be a temporary connection issue.
+        </p>
+        <button
+          onClick={() => retry(days)}
+          className="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl transition-all shadow-lg active:scale-95"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
   if (!data) return null;
 
   const { kpis, dailyRevenue, topBooks, ordersByStatus, userGrowth } = data;
@@ -148,7 +168,7 @@ const AdminDashboard = () => {
                 <XAxis dataKey="_id" tick={{ fontSize: 10, fill: "#71717a" }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: "#71717a" }} axisLine={false} tickLine={false} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#ffff", border: "1px solid #e4e4e7", borderRadius: 12, boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                  contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e4e4e7", borderRadius: 12, boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                   itemStyle={{ color: "#3b82f6", fontWeight: 'bold' }}
                   formatter={(v) => [`₹${v}`, "Revenue"]}
                 />
@@ -189,7 +209,7 @@ const AdminDashboard = () => {
                   ))}
                 </Pie>
                 <Tooltip
-                   contentStyle={{ backgroundColor: "#ffff", border: "1px solid #e4e4e7", borderRadius: 12 }}
+                   contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e4e4e7", borderRadius: 12 }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -218,7 +238,7 @@ const AdminDashboard = () => {
                   tickLine={false}
                 />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#ffff", border: "1px solid #e4e4e7", borderRadius: 12 }}
+                  contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e4e4e7", borderRadius: 12 }}
                 />
                 <Bar dataKey="count" fill="#3b82f6" radius={[0, 8, 8, 0]} barSize={20} />
               </BarChart>
@@ -237,7 +257,7 @@ const AdminDashboard = () => {
                 <XAxis dataKey="_id" tick={{ fontSize: 10, fill: "#71717a" }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: "#71717a" }} axisLine={false} tickLine={false} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#ffff", border: "1px solid #e4e4e7", borderRadius: 12 }}
+                  contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e4e4e7", borderRadius: 12 }}
                 />
                 <Line
                   type="stepAfter"

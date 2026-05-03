@@ -3,8 +3,8 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { authActions } from "./store/auth";
 import { AnimatePresence } from "framer-motion";
-import { io } from "socket.io-client";
 import toast from "react-hot-toast";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 // Layout
 import Navbar from "./components/Navbar/Navbar";
@@ -52,29 +52,12 @@ const App = () => {
     }
   }, []);
 
-  // Socket.io for Real-time Status Updates
-  useEffect(() => {
-    const userId = localStorage.getItem("id");
-    if (!userId) return;
-
-    const socket = io(import.meta.env.VITE_API_BASE_URL || "http://localhost:1000");
-
-    socket.on(`orderStatusUpdate:${userId}`, (data) => {
-      toast.success(
-        <div className="flex flex-col gap-1">
-          <span className="font-bold">Order Update</span>
-          <span className="text-sm">Your order for "{data.title}" is now: {data.status}</span>
-        </div>,
-        { duration: 6000, icon: "📦" }
-      );
-    });
-
-    return () => socket.disconnect();
-  }, [role]);
+  // Socket.io logic has been moved to SocketContext.jsx
 
   return (
     <div className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 transition-colors duration-300 min-h-screen flex flex-col">
       <Navbar />
+      <ErrorBoundary>
       <div className="flex-1 relative">
         <AnimatePresence mode="wait">
           <Suspense fallback={
@@ -176,6 +159,7 @@ const App = () => {
           </Suspense>
         </AnimatePresence>
       </div>
+      </ErrorBoundary>
       <Footer />
     </div>
   );

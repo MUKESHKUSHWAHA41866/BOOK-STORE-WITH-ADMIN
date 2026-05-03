@@ -19,7 +19,7 @@ const BookCard = React.memo(({ data, favourite }) => {
   };
 
   return (
-    <motion.div 
+    <motion.div
       whileHover={{ y: -10, scale: 1.02 }}
       className="bg-white dark:bg-zinc-800 rounded-2xl p-4 flex flex-col shadow-lg hover:shadow-2xl transition-all duration-300 border border-zinc-100 dark:border-zinc-700 h-full"
     >
@@ -54,6 +54,6 @@ const BookCard = React.memo(({ data, favourite }) => {
       )}
     </motion.div>
   );
-};
+});
 
 export default BookCard;

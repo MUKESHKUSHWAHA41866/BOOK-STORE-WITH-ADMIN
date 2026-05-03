@@ -42,7 +42,15 @@ const AuditLog = () => {
             <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : logs.length === 0 ? (
-          <p className="text-zinc-400 text-center py-10">No logs found.</p>
+          <div className="h-[50vh] flex flex-col items-center justify-center text-center p-8">
+            <div className="w-24 h-24 bg-zinc-800/50 rounded-full flex items-center justify-center text-zinc-500 mb-6 shadow-inner border border-zinc-700/50">
+              <FiActivity size={48} className="opacity-50" />
+            </div>
+            <h2 className="text-2xl font-black text-zinc-100 italic">No Audit Trails</h2>
+            <p className="text-zinc-500 mt-2 max-w-md font-medium">
+              The system is currently quiet. Admin actions will be recorded here securely.
+            </p>
+          </div>
         ) : (
           <table className="w-full text-sm text-left">
             <thead className="text-xs uppercase text-zinc-400 border-b border-zinc-700">

@@ -115,6 +115,10 @@ app.get("/", (req, res) => {
   res.json({ status: "ok", message: "BookHeaven API is running", version: "2.0" });
 });
 
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "OK", timestamp: Date.now() });
+});
+
 // ─── Global Error Handler ─────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
   const isProduction = process.env.NODE_ENV === "production";
