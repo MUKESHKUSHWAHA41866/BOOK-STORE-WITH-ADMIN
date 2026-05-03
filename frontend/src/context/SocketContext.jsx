@@ -25,7 +25,7 @@ export const SocketProvider = ({ children }) => {
     }
 
     const userId = localStorage.getItem("id");
-    const newSocket = io(import.meta.env.VITE_BACKEND_URL || "http://localhost:1000", {
+    const newSocket = io(import.meta.env.VITE_API_BASE_URL || "http://localhost:1000", {
       query: { userId },
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
