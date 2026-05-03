@@ -46,7 +46,10 @@ const useBooks = () => {
   const [loading, setLoading] = useState(true);
   const [filterOptions, setFilterOptions] = useState({ genres: [], languages: [] });
 
+  // Debounce text search and price inputs to avoid excessive API calls
   const debouncedQ = useDebounce(filters.q, 400);
+  const debouncedMinPrice = useDebounce(filters.minPrice, 600);
+  const debouncedMaxPrice = useDebounce(filters.maxPrice, 600);
 
   // Fetch filter options once
   useEffect(() => {
@@ -66,7 +69,12 @@ const useBooks = () => {
 
   // Fetch books when debounced filters change
   useEffect(() => {
-    const activeFilters = { ...filters, q: debouncedQ };
+    const activeFilters = {
+      ...filters,
+      q: debouncedQ,
+      minPrice: debouncedMinPrice,
+      maxPrice: debouncedMaxPrice,
+    };
     const params = buildParams(activeFilters);
 
     setSearchParams(params, { replace: true });
@@ -81,8 +89,18 @@ const useBooks = () => {
       })
       .catch(() => toast.error("Failed to load books"))
       .finally(() => setLoading(false));
-  }, [debouncedQ, filters.genre, filters.language, filters.minPrice, filters.maxPrice,
-      filters.minRating, filters.inStock, filters.sort, filters.page]);
+  }, [
+    debouncedQ,
+    debouncedMinPrice,
+    debouncedMaxPrice,
+    filters.genre,
+    filters.language,
+    filters.minRating,
+    filters.inStock,
+    filters.sort,
+    filters.page,
+    filters.limit,
+  ]);
 
   const updateFilter = useCallback((key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value, page: key === "page" ? value : 1 }));

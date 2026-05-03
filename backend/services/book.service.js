@@ -21,9 +21,17 @@ const buildBookQuery = (queryParams) => {
 
   const filter = {};
 
-  // Full-text search
+  // Text search: use $or regex so it works alongside all other filters
+  // (MongoDB $text index cannot be freely combined with $sort on other fields)
   if (q && q.trim()) {
-    filter.$text = { $search: q.trim() };
+    const escaped = q.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped, "i");
+    filter.$or = [
+      { title: regex },
+      { author: regex },
+      { desc: regex },
+      { isbn: regex },
+    ];
   }
 
   // Genre filter (can be comma-separated list)
@@ -44,8 +52,8 @@ const buildBookQuery = (queryParams) => {
     if (maxPrice !== undefined && maxPrice !== "") filter.price.$lte = Number(maxPrice);
   }
 
-  // Minimum rating
-  if (minRating) {
+  // Minimum rating — filter books with averageRating >= minRating
+  if (minRating && minRating !== "") {
     filter.averageRating = { $gte: Number(minRating) };
   }
 

@@ -2,6 +2,7 @@ const { body, query } = require("express-validator");
 const Book = require("../models/book");
 const { getPaginatedBooks, getDistinctGenres, getDistinctLanguages } = require("../services/book.service");
 const { logAudit } = require("../utils/auditLogger");
+const { getCache, setCache, delCache } = require("../utils/redis");
 
 // ─── Validation Rules ─────────────────────────────────────────────────────────
 const addBookValidation = [
@@ -23,6 +24,10 @@ const addBook = async (req, res, next) => {
     const { url, title, author, price, desc, language, genres = [], stock = 100, isbn = "" } = req.body;
     const book = new Book({ url, title, author, price, desc, language, genres, stock, isbn });
     await book.save();
+
+    // Invalidate caches
+    await delCache("recent_books");
+    await delCache("all_books_paginated");
 
     await logAudit(adminId, "CREATE_BOOK", "Book", book._id, { title });
 
@@ -46,6 +51,11 @@ const updateBook = async (req, res, next) => {
     );
     if (!updated) return res.status(404).json({ message: "Book not found" });
 
+    // Invalidate caches
+    await delCache("recent_books");
+    await delCache("all_books_paginated");
+    await delCache(`book:${bookid}`);
+
     await logAudit(adminId, "UPDATE_BOOK", "Book", updated._id, { title });
 
     return res.status(200).json({ message: "Book updated successfully", data: updated });
@@ -62,6 +72,11 @@ const deleteBook = async (req, res, next) => {
     const deleted = await Book.findByIdAndDelete(bookid);
     if (!deleted) return res.status(404).json({ message: "Book not found" });
 
+    // Invalidate caches
+    await delCache("recent_books");
+    await delCache("all_books_paginated");
+    await delCache(`book:${bookid}`);
+
     await logAudit(adminId, "DELETE_BOOK", "Book", bookid, { title: deleted.title });
 
     return res.status(200).json({ message: "Book deleted successfully" });
@@ -72,7 +87,12 @@ const deleteBook = async (req, res, next) => {
 
 const getAllBooks = async (req, res, next) => {
   try {
+    const cacheKey = `all_books:${JSON.stringify(req.query)}`;
+    const cached = await getCache(cacheKey);
+    if (cached) return res.json({ status: "Success", ...cached, fromCache: true });
+
     const result = await getPaginatedBooks(req.query);
+    await setCache(cacheKey, result, 300); // 5 min cache
     return res.json({ status: "Success", ...result });
   } catch (error) {
     next(error);
@@ -81,7 +101,11 @@ const getAllBooks = async (req, res, next) => {
 
 const getRecentBooks = async (req, res, next) => {
   try {
+    const cached = await getCache("recent_books");
+    if (cached) return res.json({ status: "Success", data: cached, fromCache: true });
+
     const books = await Book.find().sort({ createdAt: -1 }).limit(8).lean();
+    await setCache("recent_books", books, 3600); // 1 hour cache
     return res.json({ status: "Success", data: books });
   } catch (error) {
     next(error);
@@ -111,6 +135,29 @@ const getFilterOptions = async (req, res, next) => {
   }
 };
 
+/**
+ * AI Recommendation: Get similar books by genre
+ */
+const getRecommendations = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const book = await Book.findById(id);
+    if (!book) return res.status(404).json({ message: "Book not found" });
+
+    // Find books that share at least one genre, excluding the current book
+    const recommendations = await Book.find({
+      _id: { $ne: id },
+      genres: { $in: book.genres },
+    })
+      .limit(4)
+      .lean();
+
+    return res.json({ status: "Success", data: recommendations });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   addBook,
   updateBook,
@@ -119,5 +166,6 @@ module.exports = {
   getRecentBooks,
   getBookById,
   getFilterOptions,
+  getRecommendations,
   addBookValidation,
 };

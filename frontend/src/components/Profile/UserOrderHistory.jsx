@@ -107,13 +107,20 @@ const UserOrderHistory = () => {
                 ) : (
                   <span className="text-red-500 italic text-xs font-bold uppercase tracking-widest">Deleted Book</span>
                 )}
-                <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter mt-0.5 line-clamp-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  ORDER ID: {order._id.slice(-8).toUpperCase()}
+                {order.paymentId && (
+                  <div className="flex items-center gap-1 mt-1">
+                    <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md uppercase tracking-widest border border-blue-100 dark:border-blue-800">
+                      TRAX: {order.paymentId.slice(-12).toUpperCase()}
+                    </span>
+                  </div>
+                )}
+                <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter mt-1 line-clamp-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  REF: {order._id.slice(-8).toUpperCase()}
                 </p>
               </div>
 
               <div className="w-1/2 md:w-[15%] text-base font-black text-zinc-900 dark:text-zinc-100">
-                ₹{order.book?.price ?? "—"}
+                ₹{order.price || order.book?.price || "—"}
               </div>
 
               <div className="w-full md:w-[35%]">
@@ -191,7 +198,7 @@ const TimelineModal = ({ order, onClose }) => (
                 {order.book?.title}
               </h3>
               <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mt-2">
-                Qty: {order.quantity || 1} · ₹{order.book?.price}
+                Qty: {order.quantity || 1} · Paid: ₹{order.price || order.book?.price}
               </p>
             </div>
           </div>

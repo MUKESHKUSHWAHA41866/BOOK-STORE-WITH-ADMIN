@@ -111,8 +111,8 @@ const UpdateBook = () => {
           <div className="lg:col-span-4 space-y-4">
             <label className="text-zinc-700 dark:text-zinc-300 text-sm font-black uppercase tracking-widest">Book Cover</label>
             <ImageUpload 
-              onUploadSuccess={handleImageUpload} 
-              existingImage={data.url}
+              onUpload={handleImageUpload} 
+              currentUrl={data.url}
             />
             <p className="text-[10px] text-zinc-400 font-medium leading-relaxed">
               We recommend 3:4 aspect ratio. Max size 5MB. Changes will reflect immediately on the cover.

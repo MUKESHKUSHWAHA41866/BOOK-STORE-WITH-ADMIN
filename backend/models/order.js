@@ -41,6 +41,18 @@ const orderSchema = new mongoose.Schema(
       default: "Order Placed",
       enum: STATUS_ENUM,
     },
+    price: {
+      type: Number,
+      required: true,
+    },
+    discountAmount: {
+      type: Number,
+      default: 0,
+    },
+    paymentId: {
+      type: String,
+      default: "",
+    },
     // Timeline history — each status change is recorded here
     statusHistory: {
       type: [statusHistorySchema],

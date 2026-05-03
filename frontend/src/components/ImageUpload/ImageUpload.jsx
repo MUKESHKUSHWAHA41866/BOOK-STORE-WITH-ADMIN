@@ -30,11 +30,15 @@ const ImageUpload = ({ onUpload, currentUrl, label = "Upload Image" }) => {
       const res = await api.post("/api/v1/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      onUpload(res.data.url);
+      const uploadedUrl = res.data.url || res.data.secure_url;
+      if (!uploadedUrl) throw new Error("No URL returned from server");
+      onUpload(uploadedUrl);
       toast.success("Image uploaded!");
       setFile(null);
     } catch (error) {
-      toast.error("Upload failed. Try again.");
+      const msg = error.response?.data?.message || error.message || "Upload failed. Try again.";
+      toast.error(msg);
+      console.error("Upload error:", error);
     } finally {
       setLoading(false);
     }

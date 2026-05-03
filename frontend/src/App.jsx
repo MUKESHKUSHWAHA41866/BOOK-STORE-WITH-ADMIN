@@ -3,6 +3,8 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { authActions } from "./store/auth";
 import { AnimatePresence } from "framer-motion";
+import { io } from "socket.io-client";
+import toast from "react-hot-toast";
 
 // Layout
 import Navbar from "./components/Navbar/Navbar";
@@ -20,6 +22,7 @@ import AddBook from "./pages/AddBook";
 import UpdateBook from "./pages/UpdateBook";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
+import PaymentSuccess from "./pages/PaymentSuccess";
 
 // Components
 import ViewBookDetails from "./components/ViewBookDetails/ViewBookDetails";
@@ -28,6 +31,7 @@ import UserOrderHistory from "./components/Profile/UserOrderHistory";
 import Settings from "./components/Profile/Settings";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AuditLog from "./components/Profile/AuditLog";
+import ManageCoupons from "./components/Admin/ManageCoupons";
 
 const App = () => {
   const dispatch = useDispatch();
@@ -46,6 +50,26 @@ const App = () => {
     }
   }, []);
 
+  // Socket.io for Real-time Status Updates
+  useEffect(() => {
+    const userId = localStorage.getItem("id");
+    if (!userId) return;
+
+    const socket = io(import.meta.env.VITE_API_BASE_URL || "http://localhost:1000");
+
+    socket.on(`orderStatusUpdate:${userId}`, (data) => {
+      toast.success(
+        <div className="flex flex-col gap-1">
+          <span className="font-bold">Order Update</span>
+          <span className="text-sm">Your order for "{data.title}" is now: {data.status}</span>
+        </div>,
+        { duration: 6000, icon: "📦" }
+      );
+    });
+
+    return () => socket.disconnect();
+  }, [role]);
+
   return (
     <div className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 transition-colors duration-300 min-h-screen flex flex-col">
       <Navbar />
@@ -58,6 +82,7 @@ const App = () => {
             <Route path="/view-book-details/:id" element={<ViewBookDetails />} />
             <Route path="/LogIn" element={<Login />} />
             <Route path="/SignUp" element={<SignUp />} />
+            <Route path="/payment-success" element={<PaymentSuccess />} />
 
             {/* Protected: Authenticated Users Only */}
             <Route
@@ -111,6 +136,15 @@ const App = () => {
                 element={
                   <ProtectedRoute role="admin">
                     <AuditLog />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/profile/coupons"
+                element={
+                  <ProtectedRoute role="admin">
+                    <ManageCoupons />
                   </ProtectedRoute>
                 }
               />

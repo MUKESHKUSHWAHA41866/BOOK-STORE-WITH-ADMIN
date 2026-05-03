@@ -3,6 +3,8 @@ const User = require("../models/user");
 const Book = require("../models/book");
 const { logAudit } = require("../utils/auditLogger");
 const { sendEmail } = require("../utils/mailer");
+const Coupon = require("../models/coupon");
+const { Parser } = require("json2csv");
 
 const STATUS_SEQUENCE = [
   "Order Placed",
@@ -19,7 +21,7 @@ const STATUS_SEQUENCE = [
 const placeOrder = async (req, res, next) => {
   try {
     const userId = req.user.id; // Corrected: Using token identity
-    const { order } = req.body;
+    const { order, couponCode } = req.body;
 
     if (!order || !Array.isArray(order) || order.length === 0) {
       return res.status(400).json({ message: "Order items are required" });
@@ -28,7 +30,27 @@ const placeOrder = async (req, res, next) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    // Handle Coupon
+    let discountPercent = 0;
+    let totalOriginalAmount = 0;
+    
+    // First pass: calculate total original amount
+    for (const item of order) {
+      const book = await Book.findById(item.book || item._id);
+      if (book) {
+        totalOriginalAmount += book.price * (item.quantity || 1);
+      }
+    }
+
+    if (couponCode) {
+      const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
+      if (coupon && new Date() <= coupon.expiryDate && totalOriginalAmount >= coupon.minOrderAmount) {
+        discountPercent = coupon.discountPercent;
+      }
+    }
+
     let orderListHtml = "";
+    let finalTotalAmount = 0;
 
     for (const orderData of order) {
       const book = await Book.findById(orderData.book || orderData._id);
@@ -41,22 +63,29 @@ const placeOrder = async (req, res, next) => {
         });
       }
 
-      const bookId = book._id;
+      const itemTotalPrice = book.price * qty;
+      const itemDiscount = (itemTotalPrice * discountPercent) / 100;
+      const itemFinalPrice = itemTotalPrice - itemDiscount;
+      
+      finalTotalAmount += itemFinalPrice;
+
       const newOrder = new Order({
         user: userId,
-        book: bookId,
+        book: book._id,
         quantity: qty,
+        price: itemFinalPrice,
+        discountAmount: itemDiscount,
         status: "Order Placed",
         statusHistory: [{ status: "Order Placed", timestamp: new Date() }],
       });
       const savedOrder = await newOrder.save();
 
-      orderListHtml += `<li><b>${book.title}</b> x ${qty} - $${book.price * qty}</li>`;
+      orderListHtml += `<li><b>${book.title}</b> x ${qty} - $${itemFinalPrice.toFixed(2)} ${discountPercent > 0 ? `(Discounted from $${itemTotalPrice})` : ""}</li>`;
 
-      await Book.findByIdAndUpdate(bookId, { $inc: { stock: -qty } });
+      await Book.findByIdAndUpdate(book._id, { $inc: { stock: -qty } });
       await User.findByIdAndUpdate(userId, {
         $push: { orders: savedOrder._id },
-        $pull: { cart: { book: bookId } },
+        $pull: { cart: { book: book._id } },
       });
     }
 
@@ -158,10 +187,52 @@ const updateOrderStatus = async (req, res, next) => {
       sendEmail(order.user.email, `BookHeaven: Order ${status}`, statusHtml);
     }
 
+    const io = req.app.get("socketio");
+    if (io) {
+      io.emit(`orderStatusUpdate:${order.user._id}`, {
+        orderId: order._id,
+        title: order.book.title,
+        status: status,
+      });
+    }
+
     return res.json({ status: "Success", message: "Status updated successfully", data: order });
   } catch (error) {
     next(error);
   }
 };
 
-module.exports = { placeOrder, getOrderHistory, getAllOrders, updateOrderStatus };
+/**
+ * GET /admin/export-orders
+ */
+const exportOrders = async (req, res, next) => {
+  try {
+    const orders = await Order.find()
+      .populate("book", "title price")
+      .populate("user", "username email")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const fields = [
+      { label: "Order ID", value: "_id" },
+      { label: "Book", value: "book.title" },
+      { label: "Quantity", value: "quantity" },
+      { label: "Price Paid", value: "price" },
+      { label: "Customer", value: "user.username" },
+      { label: "Email", value: "user.email" },
+      { label: "Status", value: "status" },
+      { label: "Date", value: "createdAt" },
+    ];
+
+    const json2csvParser = new Parser({ fields });
+    const csv = json2csvParser.parse(orders);
+
+    res.header("Content-Type", "text/csv");
+    res.attachment("orders.csv");
+    return res.send(csv);
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { placeOrder, getOrderHistory, getAllOrders, updateOrderStatus, exportOrders };

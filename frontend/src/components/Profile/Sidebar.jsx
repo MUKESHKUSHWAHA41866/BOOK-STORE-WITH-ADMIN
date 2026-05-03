@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FaArrowRightFromBracket } from "react-icons/fa6";
-import { FiBarChart2, FiBookOpen, FiHeart, FiClock, FiSettings, FiShoppingBag, FiActivity } from "react-icons/fi";
+import { FiBarChart2, FiBookOpen, FiHeart, FiClock, FiSettings, FiShoppingBag, FiActivity, FiTag } from "react-icons/fi";
 import { authActions } from '../../store/auth';
 import { useDispatch, useSelector } from 'react-redux';
 import api from '../../api';
@@ -81,6 +81,7 @@ const Sidebar = ({ data }) => {
             <NavLink to="/profile" icon={FiShoppingBag} label="All Orders" />
             <NavLink to="/profile/add-book" icon={FiBookOpen} label="Add Book" />
             <NavLink to="/profile/dashboard" icon={FiBarChart2} label="Analytics" />
+            <NavLink to="/profile/coupons" icon={FiTag} label="Coupons" />
             <NavLink to="/profile/audit" icon={FiActivity} label="Audit Logs" />
             <NavLink to="/profile/settings" icon={FiSettings} label="Settings" />
           </>

@@ -1,11 +1,28 @@
 const express = require("express");
 const app = express();
+const http = require("http");
+const { Server } = require("socket.io");
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    methods: ["GET", "POST"],
+  },
+});
+app.set("socketio", io);
 const cors = require("cors");
 require("dotenv").config();
 const logger = require("./utils/logger");
 
 // ─── Validate critical environment variables on startup ────────────────────────
-const requiredEnvVars = ["PORT", "URI_MON", "JWT_SECRET", "EMAIL_USER", "EMAIL_PASS"];
+const requiredEnvVars = [
+  "PORT",
+  "URI_MON",
+  "JWT_SECRET",
+  "EMAIL_USER",
+  "EMAIL_PASS",
+  "FRONTEND_URL",
+];
 requiredEnvVars.forEach((envVar) => {
   if (!process.env[envVar]) {
     logger.error(`Missing required environment variable: ${envVar}`);
@@ -33,6 +50,8 @@ const cartRoutes = require("./routes/cart");
 const orderRoutes = require("./routes/order");
 const reviewRoutes = require("./routes/review");       // Phase 2
 const analyticsRoutes = require("./routes/analytics"); // Phase 2
+const couponRoutes = require("./routes/coupon");       // Phase 4
+const stripeRoutes = require("./routes/stripe");       // Phase 4 (NEW)
 
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
@@ -60,6 +79,14 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization", "id", "bookid"],
   })
 );
+
+// ─── Stripe Webhook (MUST be before express.json) ─────────────────────────────
+app.post(
+  "/api/v1/webhook",
+  express.raw({ type: "application/json" }),
+  require("./controllers/stripe.webhook")
+);
+
 app.use(express.json());
 app.use(cookieParser());
 
@@ -71,6 +98,8 @@ app.use("/api/v1", cartRoutes);
 app.use("/api/v1", orderRoutes);
 app.use("/api/v1", reviewRoutes);
 app.use("/api/v1", analyticsRoutes);
+app.use("/api/v1/coupon", couponRoutes);
+app.use("/api/v1", stripeRoutes);
 app.use("/api/v1", require("./routes/audit"));
 app.use("/api/v1", require("./routes/upload"));
 
@@ -106,6 +135,9 @@ app.use((err, req, res, next) => {
 });
 
 // ─── Start Server ─────────────────────────────────────────────────────────────
-app.listen(process.env.PORT, () => {
+server.listen(process.env.PORT, () => {
   console.log(`✅ BookHeaven v2.0 started on port ${process.env.PORT}`);
 });
+
+// Export io for controllers
+module.exports = { app, io };

@@ -10,6 +10,7 @@ const {
   getBookById,
   getFilterOptions,
   addBookValidation,
+  getRecommendations,
 } = require("../controllers/book.controller");
 
 // ─── Admin Routes ─────────────────────────────────────────────────────────────
@@ -24,5 +25,6 @@ router.get("/get-recent-books", getRecentBooks);
 router.get("/get-book-by-id/:id", getBookById);
 // Returns distinct genres + languages for filter dropdowns
 router.get("/get-filter-options", getFilterOptions);
+router.get("/recommendations/:id", getRecommendations);
 
 module.exports = router;

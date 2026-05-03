@@ -11,6 +11,45 @@ const Cart = () => {
   const navigate = useNavigate();
   const { cart, loading, total, itemCount, removeItem, updateQuantity, clearCart } = useCart();
   const [orderLoading, setOrderLoading] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponData, setCouponData] = useState(null);
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+
+  const applyCoupon = async () => {
+    if (!couponCode) return;
+    setIsApplyingCoupon(true);
+    try {
+      const res = await api.post("/api/v1/validate", { code: couponCode, amount: total });
+      setCouponData(res.data.data);
+      toast.success(`Coupon "${res.data.data.code}" applied!`);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Invalid coupon code.");
+      setCouponData(null);
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  };
+
+  const checkoutWithStripe = async () => {
+    if (cart.length === 0) return;
+    setOrderLoading(true);
+    try {
+      const orderItems = cart.map((item) => ({
+        book: item.book._id,
+        quantity: item.quantity,
+      }));
+      const res = await api.post("/api/v1/create-checkout-session", { 
+        order: orderItems,
+        couponCode: couponData ? couponData.code : null
+      });
+      // Redirect to Stripe checkout
+      window.location.href = res.data.url;
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Stripe checkout failed.");
+    } finally {
+      setOrderLoading(false);
+    }
+  };
 
   const placeOrder = async () => {
     if (cart.length === 0) return;
@@ -19,9 +58,11 @@ const Cart = () => {
       const orderItems = cart.map((item) => ({
         book: item.book._id,
         quantity: item.quantity,
-        _id: item.book._id,
       }));
-      await api.post("/api/v1/place-order", { order: orderItems });
+      await api.post("/api/v1/place-order", { 
+        order: orderItems,
+        couponCode: couponData ? couponData.code : null
+      });
       toast.success("Order placed successfully! 🎉");
       navigate("/profile/orderHistory");
     } catch (error) {
@@ -131,28 +172,64 @@ const Cart = () => {
               </div>
 
               <div className="border-t border-zinc-100 dark:border-zinc-700 pt-6 mb-8">
+                <div className="mb-4">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Coupon Code"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                      className="flex-1 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none uppercase transition-all"
+                    />
+                    <button
+                      onClick={applyCoupon}
+                      disabled={isApplyingCoupon || !couponCode}
+                      className="bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 px-4 py-2 rounded-xl text-xs font-black uppercase hover:opacity-80 disabled:opacity-50 transition-all"
+                    >
+                      {isApplyingCoupon ? "..." : "Apply"}
+                    </button>
+                  </div>
+                  {couponData && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
+                      className="mt-2 flex items-center justify-between text-xs font-bold text-green-600 dark:text-green-500"
+                    >
+                      <span>Discount ({couponData.discountPercent}%)</span>
+                      <span>-₹ {couponData.discountAmount.toFixed(0)}</span>
+                    </motion.div>
+                  )}
+                </div>
+
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-zinc-500 dark:text-zinc-400 font-bold">Grand Total</span>
-                  <span className="text-3xl font-black text-blue-600 dark:text-blue-400 tracking-tighter">₹ {total.toFixed(0)}</span>
+                  <span className="text-3xl font-black text-blue-600 dark:text-blue-400 tracking-tighter">
+                    ₹ {(couponData ? couponData.finalAmount : total).toFixed(0)}
+                  </span>
                 </div>
-                <div className="flex items-center gap-1.5 text-green-600 dark:text-green-500 text-[10px] font-bold uppercase tracking-widest justify-end">
+                {couponData && (
+                  <div className="text-[10px] text-zinc-400 line-through text-right font-bold">
+                    Original Price: ₹ {total.toFixed(0)}
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5 text-green-600 dark:text-green-500 text-[10px] font-bold uppercase tracking-widest justify-end mt-2">
                    <FiCheckCircle size={10} /> Secure COD Checkout
                 </div>
               </div>
 
+               <button
+                onClick={checkoutWithStripe}
+                disabled={orderLoading}
+                className="w-full py-4 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-black rounded-2xl shadow-xl transition-all active:scale-95 text-xl mb-4"
+              >
+                {orderLoading ? "Processing..." : "Pay Now (Stripe)"}
+              </button>
+
               <button
                 onClick={placeOrder}
                 disabled={orderLoading}
-                className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black rounded-2xl shadow-xl shadow-blue-600/30 transition-all active:scale-95 text-xl"
+                className="w-full py-3 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-bold rounded-2xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all active:scale-95 text-sm"
               >
-                {orderLoading ? (
-                  <span className="flex items-center justify-center gap-3">
-                    <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
-                    Processing...
-                  </span>
-                ) : (
-                  "Confirm Order"
-                )}
+                Cash on Delivery
               </button>
 
               <Link
