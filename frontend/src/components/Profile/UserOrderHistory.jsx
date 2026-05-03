@@ -191,6 +191,7 @@ const TimelineModal = ({ order, onClose }) => (
             <img 
               src={order.book?.url} 
               alt={order.book?.title} 
+              loading="lazy"
               className="w-16 h-20 object-cover rounded-xl shadow-lg border border-white/10"
             />
             <div className="flex flex-col justify-center">

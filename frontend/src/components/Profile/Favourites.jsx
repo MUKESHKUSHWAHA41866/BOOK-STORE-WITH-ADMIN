@@ -37,6 +37,7 @@ const Favourites = () => {
         <img
           src="./star1.png"
           alt="No favorites"
+          loading="lazy"
           className="h-[20vh] my-8"
         />
         <p className="text-zinc-400 text-lg">

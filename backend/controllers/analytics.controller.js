@@ -2,6 +2,7 @@ const { getDailyRevenue, getTopBooks, getOrdersByStatus, getUserGrowth } = requi
 const Order = require("../models/order");
 const User = require("../models/user");
 const Book = require("../models/book");
+const { getCache, setCache } = require("../utils/redis");
 
 /**
  * GET /admin/analytics
@@ -10,6 +11,12 @@ const Book = require("../models/book");
 const getAnalytics = async (req, res, next) => {
   try {
     const days = Number(req.query.days) || 30;
+    const cacheKey = `analytics:${days}`;
+
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.json({ status: "Success", data: cached, fromCache: true });
+    }
 
     const [
       dailyRevenue,
@@ -49,15 +56,19 @@ const getAnalytics = async (req, res, next) => {
       Book.countDocuments(),
     ]);
 
+    const data = {
+      kpis: { totalRevenue, totalOrders, totalUsers, totalBooks },
+      dailyRevenue,
+      topBooks,
+      ordersByStatus,
+      userGrowth,
+    };
+
+    await setCache(cacheKey, data, 300); // 5 min TTL
+
     return res.json({
       status: "Success",
-      data: {
-        kpis: { totalRevenue, totalOrders, totalUsers, totalBooks },
-        dailyRevenue,
-        topBooks,
-        ordersByStatus,
-        userGrowth,
-      },
+      data,
     });
   } catch (error) {
     next(error);

@@ -11,4 +11,6 @@ const auditLogSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+auditLogSchema.index({ entityType: 1, entityId: 1 });
+
 module.exports = mongoose.model("audit_log", auditLogSchema);

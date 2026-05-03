@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { authActions } from "./store/auth";
@@ -10,28 +10,30 @@ import toast from "react-hot-toast";
 import Navbar from "./components/Navbar/Navbar";
 import Footer from "./components/Footer/Footer";
 
-// Pages
-import Home from "./pages/Home";
-import AllBooks from "./pages/AllBooks";
-import Login from "./pages/Login";
-import SignUp from "./pages/SignUp";
-import Cart from "./pages/Cart";
-import Profile from "./pages/Profile";
-import AllOrders from "./pages/AllOrders";
-import AddBook from "./pages/AddBook";
-import UpdateBook from "./pages/UpdateBook";
-import AdminDashboard from "./pages/AdminDashboard";
-import NotFound from "./pages/NotFound";
-import PaymentSuccess from "./pages/PaymentSuccess";
+// Pages (Lazy Loaded)
+const Home = lazy(() => import("./pages/Home"));
+const AllBooks = lazy(() => import("./pages/AllBooks"));
+const Login = lazy(() => import("./pages/Login"));
+const SignUp = lazy(() => import("./pages/SignUp"));
+const Cart = lazy(() => import("./pages/Cart"));
+const Profile = lazy(() => import("./pages/Profile"));
+const AllOrders = lazy(() => import("./pages/AllOrders"));
+const AddBook = lazy(() => import("./pages/AddBook"));
+const UpdateBook = lazy(() => import("./pages/UpdateBook"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
 
-// Components
-import ViewBookDetails from "./components/ViewBookDetails/ViewBookDetails";
-import Favourites from "./components/Profile/Favourites";
-import UserOrderHistory from "./components/Profile/UserOrderHistory";
-import Settings from "./components/Profile/Settings";
+// Components (Lazy Loaded)
+const ViewBookDetails = lazy(() => import("./components/ViewBookDetails/ViewBookDetails"));
+const Favourites = lazy(() => import("./components/Profile/Favourites"));
+const UserOrderHistory = lazy(() => import("./components/Profile/UserOrderHistory"));
+const Settings = lazy(() => import("./components/Profile/Settings"));
+const AuditLog = lazy(() => import("./components/Profile/AuditLog"));
+const ManageCoupons = lazy(() => import("./components/Admin/ManageCoupons"));
+
+// ProtectedRoute needs to be eager to avoid layout shift
 import ProtectedRoute from "./components/ProtectedRoute";
-import AuditLog from "./components/Profile/AuditLog";
-import ManageCoupons from "./components/Admin/ManageCoupons";
 
 const App = () => {
   const dispatch = useDispatch();
@@ -73,9 +75,14 @@ const App = () => {
   return (
     <div className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 transition-colors duration-300 min-h-screen flex flex-col">
       <Navbar />
-      <div className="flex-1">
+      <div className="flex-1 relative">
         <AnimatePresence mode="wait">
-          <Routes location={location} key={location.pathname}>
+          <Suspense fallback={
+            <div className="absolute inset-0 flex items-center justify-center min-h-[50vh]">
+              <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          }>
+            <Routes location={location} key={location.pathname}>
             {/* Public Routes */}
             <Route path="/" element={<Home />} />
             <Route path="/all-books" element={<AllBooks />} />
@@ -166,6 +173,7 @@ const App = () => {
             {/* 404 Not Found — replaces the old Navigate catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
         </AnimatePresence>
       </div>
       <Footer />

@@ -454,6 +454,7 @@ const ReviewCard = ({ review, myUserId, isAdmin, onLike, onDelete, onEdit }) => 
             <img
               src={review.user?.avatar || "https://cdn-icons-png.flaticon.com/512/149/149071.png"}
               alt={review.user?.username}
+              loading="lazy"
               className="w-12 h-12 rounded-2xl object-cover border border-zinc-100 dark:border-zinc-700 shadow-sm"
             />
             {isOwner && <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white dark:border-zinc-800"></div>}

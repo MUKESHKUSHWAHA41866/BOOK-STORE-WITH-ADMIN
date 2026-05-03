@@ -64,4 +64,8 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+orderSchema.index({ user: 1, createdAt: -1 });
+orderSchema.index({ status: 1 });
+orderSchema.index({ paymentId: 1 }, { sparse: true });
+
 module.exports = mongoose.model("order", orderSchema);

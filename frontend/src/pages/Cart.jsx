@@ -246,7 +246,7 @@ const Cart = () => {
   );
 };
 
-const CartItem = ({ item, onRemove, onUpdateQty, index }) => {
+const CartItem = React.memo(({ item, onRemove, onUpdateQty, index }) => {
   const { book, quantity } = item;
   const subtotal = (Number(book.price) * quantity).toFixed(0);
   const maxStock = book.stock ?? 99;
@@ -265,6 +265,7 @@ const CartItem = ({ item, onRemove, onUpdateQty, index }) => {
         <img
           src={book.url}
           alt={book.title}
+          loading="lazy"
           className="h-32 w-24 object-cover rounded-xl shadow-lg relative z-10"
         />
       </Link>
@@ -325,6 +326,6 @@ const CartItem = ({ item, onRemove, onUpdateQty, index }) => {
       </div>
     </motion.div>
   );
-};
+});
 
 export default Cart;

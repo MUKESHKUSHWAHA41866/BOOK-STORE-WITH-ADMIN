@@ -2,7 +2,8 @@ const router = require("express").Router();
 const User = require("../models/user");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { authenticateToken } = require("./userAuth");
+// ← Fix: import directly from the canonical auth middleware, not the legacy shim
+const { authenticateToken } = require("../middlewares/auth.middleware");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 

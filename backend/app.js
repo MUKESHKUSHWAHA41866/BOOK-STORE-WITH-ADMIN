@@ -22,6 +22,11 @@ const requiredEnvVars = [
   "EMAIL_USER",
   "EMAIL_PASS",
   "FRONTEND_URL",
+  "CLOUDINARY_CLOUD_NAME",
+  "CLOUDINARY_API_KEY",
+  "CLOUDINARY_API_SECRET",
+  // STRIPE_WEBHOOK_SECRET is required in production — enforced in stripe.webhook.js
+  // but we warn here so it's visible at startup
 ];
 requiredEnvVars.forEach((envVar) => {
   if (!process.env[envVar]) {
@@ -57,9 +62,11 @@ const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
+const compression = require("compression");
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(helmet());
+app.use(compression());
 app.use(morgan("combined", { stream: logger.stream }));
 
 const limiter = rateLimit({

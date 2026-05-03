@@ -30,46 +30,56 @@ const placeOrder = async (req, res, next) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    // ✅ Single query for all books
+    const bookIds = order.map(i => i.book || i._id);
+    const books = await Book.find({ _id: { $in: bookIds } }).lean();
+    const bookMap = Object.fromEntries(books.map(b => [b._id.toString(), b]));
+
     // Handle Coupon
     let discountPercent = 0;
     let totalOriginalAmount = 0;
     
-    // First pass: calculate total original amount
+    // First pass: calculate total original amount & validate stock
     for (const item of order) {
-      const book = await Book.findById(item.book || item._id);
-      if (book) {
-        totalOriginalAmount += book.price * (item.quantity || 1);
-      }
-    }
-
-    if (couponCode) {
-      const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
-      if (coupon && new Date() <= coupon.expiryDate && totalOriginalAmount >= coupon.minOrderAmount) {
-        discountPercent = coupon.discountPercent;
-      }
-    }
-
-    let orderListHtml = "";
-    let finalTotalAmount = 0;
-
-    for (const orderData of order) {
-      const book = await Book.findById(orderData.book || orderData._id);
+      const bookIdStr = (item.book || item._id).toString();
+      const book = bookMap[bookIdStr];
       if (!book) continue;
-
-      const qty = orderData.quantity || 1;
+      
+      const qty = item.quantity || 1;
       if (book.stock < qty) {
         return res.status(400).json({
           message: `Insufficient stock for "${book.title}" (only ${book.stock} left)`,
         });
       }
+      totalOriginalAmount += book.price * qty;
+    }
 
+    if (couponCode) {
+      const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
+      if (coupon && new Date() <= coupon.expiryDate && totalOriginalAmount >= coupon.minOrderAmount) {
+        if (!coupon.usageLimit || coupon.usedCount < coupon.usageLimit) {
+          discountPercent = coupon.discountPercent;
+          await Coupon.findByIdAndUpdate(coupon._id, { $inc: { usedCount: 1 } });
+        }
+      }
+    }
+
+    let orderListHtml = "";
+    const orderDocs = [];
+    const bulkBookOps = [];
+    const pulledBookIds = [];
+
+    for (const orderData of order) {
+      const bookIdStr = (orderData.book || orderData._id).toString();
+      const book = bookMap[bookIdStr];
+      if (!book) continue;
+
+      const qty = orderData.quantity || 1;
       const itemTotalPrice = book.price * qty;
       const itemDiscount = (itemTotalPrice * discountPercent) / 100;
       const itemFinalPrice = itemTotalPrice - itemDiscount;
-      
-      finalTotalAmount += itemFinalPrice;
 
-      const newOrder = new Order({
+      orderDocs.push({
         user: userId,
         book: book._id,
         quantity: qty,
@@ -78,16 +88,23 @@ const placeOrder = async (req, res, next) => {
         status: "Order Placed",
         statusHistory: [{ status: "Order Placed", timestamp: new Date() }],
       });
-      const savedOrder = await newOrder.save();
 
       orderListHtml += `<li><b>${book.title}</b> x ${qty} - $${itemFinalPrice.toFixed(2)} ${discountPercent > 0 ? `(Discounted from $${itemTotalPrice})` : ""}</li>`;
 
-      await Book.findByIdAndUpdate(book._id, { $inc: { stock: -qty } });
-      await User.findByIdAndUpdate(userId, {
-        $push: { orders: savedOrder._id },
-        $pull: { cart: { book: book._id } },
+      bulkBookOps.push({
+        updateOne: { filter: { _id: book._id }, update: { $inc: { stock: -qty } } }
       });
+      pulledBookIds.push(book._id);
     }
+
+    const savedOrders = await Order.insertMany(orderDocs);
+    await Book.bulkWrite(bulkBookOps);
+
+    const orderIds = savedOrders.map(o => o._id);
+    await User.findByIdAndUpdate(userId, {
+      $push: { orders: { $each: orderIds } },
+      $pull: { cart: { book: { $in: pulledBookIds } } },
+    });
 
     // Send Confirmation Email
     const emailHtml = `

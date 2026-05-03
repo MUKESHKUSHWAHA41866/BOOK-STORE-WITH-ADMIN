@@ -2,6 +2,7 @@ const Review = require("../models/review");
 const Order = require("../models/order");
 const { recalculateBookRating } = require("../services/review.service");
 const { body } = require("express-validator");
+const logger = require("../utils/logger"); // ← Fix: was missing, caused ReferenceError on any review error
 
 // ─── Validation Rules ─────────────────────────────────────────────────────────
 const reviewValidation = [
@@ -21,20 +22,21 @@ const reviewValidation = [
  * Users can only review books they have purchased.
  * One review per user per book.
  */
-const addReview = async (req, res) => {
+const addReview = async (req, res, next) => {
   try {
     const { id: bookId } = req.params;
     const { rating, comment } = req.body;
-    const userId = req.user.id; // Corrected: Using identity from authenticated token
+    const userId = req.user.id; // Using identity from authenticated token
 
     if (!rating || !comment) {
       return res.status(400).json({ message: "Rating and comment are required." });
     }
 
-    // Checking if the user has purchased the book
+    // ← Fix: Order.book is an ObjectId ref, NOT an embedded object.
+    // "book._id" never matched — use `book: bookId` directly.
     const order = await Order.findOne({
       user: userId,
-      "book._id": bookId, // Ensure we check the book ID inside the nested object
+      book: bookId,
       status: { $in: ["Delivered", "Out for Delivery"] },
     });
 
@@ -59,13 +61,13 @@ const addReview = async (req, res) => {
 
     await review.save();
 
-    // Recalculating book rating in the background
+    // Recalculate book rating asynchronously (non-blocking)
     recalculateBookRating(bookId);
 
-    res.status(201).json({ message: "Review added successfully.", review });
+    return res.status(201).json({ message: "Review added successfully.", review });
   } catch (error) {
     logger.error("Error in addReview controller:", error);
-    res.status(500).json({ message: "Internal server error." });
+    next(error);
   }
 };
 
@@ -134,10 +136,11 @@ const updateReview = async (req, res, next) => {
  */
 const deleteReview = async (req, res, next) => {
   try {
-    const userId = req.user.id; // Corrected: Using token identity
+    const userId = req.user.id; // Using token identity
     const { reviewId } = req.params;
-    const claims = req.user?.authClaims || [];
-    const isAdmin = claims.find((c) => c.role === "admin");
+    // ← Fix: JWT payload is { id, name, role } — authClaims never existed on req.user.
+    // Using req.user.role directly as set by authenticateToken middleware.
+    const isAdmin = req.user?.role === "admin";
 
     const review = await Review.findById(reviewId);
     if (!review) return res.status(404).json({ message: "Review not found" });

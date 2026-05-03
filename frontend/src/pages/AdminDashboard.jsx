@@ -258,7 +258,7 @@ const AdminDashboard = () => {
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-const KpiCard = ({ label, value, Icon, color, bg }) => (
+const KpiCard = React.memo(({ label, value, Icon, color, bg }) => (
   <motion.div 
     whileHover={{ y: -5 }}
     className="bg-white dark:bg-zinc-800 rounded-3xl p-6 flex items-center gap-5 shadow-lg border border-zinc-100 dark:border-zinc-700 transition-all duration-300"
@@ -271,7 +271,7 @@ const KpiCard = ({ label, value, Icon, color, bg }) => (
       <p className="text-2xl font-black text-zinc-900 dark:text-zinc-100">{value}</p>
     </div>
   </motion.div>
-);
+));
 
 const ChartCard = ({ title, children }) => (
   <div className="bg-white dark:bg-zinc-800 rounded-3xl p-6 shadow-lg border border-zinc-100 dark:border-zinc-700 transition-all duration-300">

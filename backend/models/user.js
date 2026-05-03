@@ -28,19 +28,15 @@ const user = new mongoose.Schema(
       type: String,
       required: true,
     },
+    // Single avatar field — using DiceBear for reliable, always-available default avatars
     avatar: {
       type: String,
-      default:
-        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTfM1_TNk0nbQKhjL0y3u4-Eo_ovtznNsIjskij3aKyzJn7TE8KyFPHnT26DroINVwjKPM&usqp=CAU",
+      default: "https://api.dicebear.com/9.x/initials/svg?seed=user",
     },
     role: {
       type: String,
       default: "user",
       enum: ["user", "admin"],
-    },
-    avatar: {
-      type: String,
-      default: "https://api.dicebear.com/9.x/initials/svg?seed=user",
     },
     favourites: [
       {

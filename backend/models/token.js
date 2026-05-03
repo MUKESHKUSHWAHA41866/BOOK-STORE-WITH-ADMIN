@@ -10,4 +10,7 @@ const tokenSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+tokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // Auto-delete expired tokens
+tokenSchema.index({ userId: 1 });
+
 module.exports = mongoose.model("token", tokenSchema);

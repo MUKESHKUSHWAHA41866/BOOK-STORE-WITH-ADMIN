@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import api from "../../api";
 import { motion } from "framer-motion";
 
-const BookCard = ({ data, favourite }) => {
+const BookCard = React.memo(({ data, favourite }) => {
   const handleRemoveFromFavorites = async () => {
     try {
       const response = await api.put(
@@ -28,6 +28,7 @@ const BookCard = ({ data, favourite }) => {
           <img
             src={data.url}
             alt={data.title}
+            loading="lazy"
             className="h-full object-cover w-full transform transition-transform duration-500 hover:scale-110"
           />
         </div>
