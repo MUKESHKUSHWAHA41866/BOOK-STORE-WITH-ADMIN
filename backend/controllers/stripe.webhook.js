@@ -4,7 +4,7 @@ const Book = require("../models/book");
 const User = require("../models/user");
 const Coupon = require("../models/coupon");
 const { logAudit } = require("../utils/auditLogger");
-const { sendEmail } = require("../utils/mailer");
+const { emailQueue } = require("../queues/email.queue");
 const escapeHtml = require("escape-html");
 const logger = require("../utils/logger");
 
@@ -131,9 +131,7 @@ async function handleSuccessfulPayment(session) {
     }
 
     if (savedOrders.length > 0) {
-      const orderIds = savedOrders.map(o => o._id);
       await User.findByIdAndUpdate(userId, {
-        $push: { orders: { $each: orderIds } },
         $pull: { cart: { book: { $in: pulledBookIds } } },
       });
     }
@@ -148,7 +146,11 @@ async function handleSuccessfulPayment(session) {
           <ul>${orderListHtml}</ul>
         </div>
       `;
-      sendEmail(user.email, "Order Confirmed - BookHeaven", emailHtml);
+      emailQueue.add("sendEmail", {
+        to: user.email,
+        subject: "Order Confirmed - BookHeaven",
+        htmlContent: emailHtml,
+      });
     }
 
     await logAudit(userId, "PAYMENT_SUCCESS", "Order", session.id, { total: session.amount_total / 100 });

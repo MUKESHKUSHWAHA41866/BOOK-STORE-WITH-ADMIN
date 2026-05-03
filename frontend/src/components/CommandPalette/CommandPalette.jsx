@@ -44,7 +44,7 @@ const CommandPalette = ({ open, onClose }) => {
     }
     setSearching(true);
     api
-      .get("/api/v1/get-all-books", { params: { q: debouncedQuery, limit: 5 } })
+      .get("/api/v1/search", { params: { q: debouncedQuery } })
       .then((res) => setBookResults(res.data.data || []))
       .catch(() => setBookResults([]))
       .finally(() => setSearching(false));

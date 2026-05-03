@@ -38,20 +38,8 @@ const user = new mongoose.Schema(
       default: "user",
       enum: ["user", "admin"],
     },
-    favourites: [
-      {
-        type: mongoose.Types.ObjectId,
-        ref: "books",
-      },
-    ],
     // Phase 2: cart now stores book + quantity
     cart: [cartItemSchema],
-    orders: [
-      {
-        type: mongoose.Types.ObjectId,
-        ref: "order",
-      },
-    ],
     resetPasswordToken: String,
     resetPasswordExpire: Date,
   },

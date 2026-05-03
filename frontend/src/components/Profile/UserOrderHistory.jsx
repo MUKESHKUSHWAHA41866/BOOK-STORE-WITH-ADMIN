@@ -1,8 +1,11 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { FiPackage, FiShoppingBag, FiInfo, FiArrowRight } from "react-icons/fi";
 import { RxCross2 } from "react-icons/rx";
+import { FiRefreshCw } from "react-icons/fi";
+import toast from "react-hot-toast";
+import api from "../../api";
 import { OrderTableSkeleton } from "../Skeleton/OrderRowSkeleton";
 import OrderTimeline from "../OrderTimeline/OrderTimeline";
 import useOrders from "../../hooks/useOrders";
@@ -23,6 +26,22 @@ const getStatusColor = (status) => {
 const UserOrderHistory = () => {
   const { orders, loading } = useOrders();
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [reordering, setReordering] = useState(null);
+  const navigate = useNavigate();
+
+  const handleReorder = async (order) => {
+    if (!order.book) return toast.error("Book no longer exists");
+    setReordering(order._id);
+    try {
+      const res = await api.put("/api/v1/add-to-cart", {}, { headers: { bookid: order.book._id } });
+      toast.success(res.data.message || "Added to cart");
+      navigate("/cart");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to reorder");
+    } finally {
+      setReordering(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -129,7 +148,17 @@ const UserOrderHistory = () => {
                 </span>
               </div>
 
-              <div className="w-1/2 md:w-[15%] flex justify-end">
+              <div className="w-1/2 md:w-[20%] flex justify-end gap-2">
+                {order.book && (
+                  <button
+                    onClick={() => handleReorder(order)}
+                    disabled={reordering === order._id}
+                    className="group/btn relative flex items-center gap-2 px-4 py-2 bg-zinc-50 dark:bg-zinc-900 text-green-600 dark:text-green-400 rounded-xl border border-zinc-100 dark:border-zinc-700 hover:border-green-500/50 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all text-[10px] font-black uppercase tracking-widest shadow-sm active:scale-95 disabled:opacity-50"
+                  >
+                     <FiRefreshCw className={reordering === order._id ? "animate-spin" : ""} />
+                     Reorder
+                  </button>
+                )}
                 <button
                   onClick={() => setSelectedOrder(order)}
                   className="group/btn relative flex items-center gap-2 px-4 py-2 bg-zinc-50 dark:bg-zinc-900 text-blue-600 dark:text-blue-400 rounded-xl border border-zinc-100 dark:border-zinc-700 hover:border-blue-500/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all text-[10px] font-black uppercase tracking-widest shadow-sm active:scale-95"

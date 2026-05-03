@@ -9,6 +9,7 @@ const {
   getRecentBooks,
   getBookById,
   getFilterOptions,
+  globalSearch,
   addBookValidation,
   getRecommendations,
 } = require("../controllers/book.controller");
@@ -22,6 +23,7 @@ router.delete("/delete-book", authenticateToken, requireAdmin, deleteBook);
 // Supports: ?q= ?genre= ?language= ?minPrice= ?maxPrice= ?minRating= ?inStock= ?sort= ?page= ?limit=
 router.get("/get-all-books", getAllBooks);
 router.get("/get-recent-books", getRecentBooks);
+router.get("/search", globalSearch);
 router.get("/get-book-by-id/:id", getBookById);
 // Returns distinct genres + languages for filter dropdowns
 router.get("/get-filter-options", getFilterOptions);

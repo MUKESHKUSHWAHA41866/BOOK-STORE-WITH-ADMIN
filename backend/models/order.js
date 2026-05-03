@@ -60,6 +60,11 @@ const orderSchema = new mongoose.Schema(
         return [{ status: "Order Placed", timestamp: new Date() }];
       },
     },
+    deletedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true }
 );

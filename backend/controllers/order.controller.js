@@ -2,10 +2,10 @@ const Order = require("../models/order");
 const User = require("../models/user");
 const Book = require("../models/book");
 const { logAudit } = require("../utils/auditLogger");
-const { sendEmail } = require("../utils/mailer");
 const escapeHtml = require("escape-html");
+const { emailQueue } = require("../queues/email.queue");
 const Coupon = require("../models/coupon");
-const { Parser } = require("json2csv");
+const fastcsv = require("fast-csv");
 
 const STATUS_SEQUENCE = [
   "Order Placed",
@@ -101,9 +101,7 @@ const placeOrder = async (req, res, next) => {
     const savedOrders = await Order.insertMany(orderDocs);
     await Book.bulkWrite(bulkBookOps);
 
-    const orderIds = savedOrders.map(o => o._id);
     await User.findByIdAndUpdate(userId, {
-      $push: { orders: { $each: orderIds } },
       $pull: { cart: { book: { $in: pulledBookIds } } },
     });
 
@@ -117,7 +115,11 @@ const placeOrder = async (req, res, next) => {
         <p>We'll notify you when it's on the way!</p>
       </div>
     `;
-    sendEmail(user.email, "Order Confirmation - BookHeaven", emailHtml);
+    emailQueue.add("sendEmail", {
+      to: user.email,
+      subject: "Order Confirmation - BookHeaven",
+      htmlContent: emailHtml,
+    });
 
     return res.status(201).json({ message: "Order placed successfully" });
   } catch (error) {
@@ -131,16 +133,11 @@ const placeOrder = async (req, res, next) => {
 const getOrderHistory = async (req, res, next) => {
   try {
     const userId = req.user.id; // Using token identity
-    const userData = await User.findById(userId).populate({
-      path: "orders",
-      populate: { path: "book" },
-      options: { sort: { createdAt: -1 } },
-    });
+    const orders = await Order.find({ user: userId })
+      .populate("book")
+      .sort({ createdAt: -1 });
 
-    if (!userData) return res.status(404).json({ message: "User not found" });
-
-    const ordersData = userData.orders.slice().reverse();
-    return res.json({ status: "Success", data: ordersData });
+    return res.json({ status: "Success", data: orders });
   } catch (error) {
     next(error);
   }
@@ -151,8 +148,28 @@ const getOrderHistory = async (req, res, next) => {
  */
 const getAllOrders = async (req, res, next) => {
   try {
-    const { status, page = 1, limit = 50 } = req.query;
-    const filter = status ? { status } : {};
+    const { status, search, page = 1, limit = 50 } = req.query;
+    
+    let filter = {};
+    if (status && status !== "All") {
+      filter.status = status;
+    }
+
+    if (search) {
+      const users = await User.find({ username: { $regex: search, $options: "i" } }).select("_id");
+      const userIds = users.map(u => u._id);
+      
+      const searchConditions = [];
+      if (userIds.length > 0) searchConditions.push({ user: { $in: userIds } });
+      if (/^[0-9a-fA-F]{24}$/.test(search)) searchConditions.push({ _id: search });
+
+      if (searchConditions.length > 0) {
+        filter.$or = searchConditions;
+      } else {
+        filter._id = null; // force empty
+      }
+    }
+
     const skip = (Number(page) - 1) * Number(limit);
 
     const [orders, total] = await Promise.all([
@@ -202,7 +219,11 @@ const updateOrderStatus = async (req, res, next) => {
           <p>Check your profile for more details.</p>
         </div>
       `;
-      sendEmail(order.user.email, `BookHeaven: Order ${status}`, statusHtml);
+      emailQueue.add("sendEmail", {
+        to: order.user.email,
+        subject: `BookHeaven: Order ${status}`,
+        htmlContent: statusHtml,
+      });
     }
 
     const io = req.app.get("socketio");
@@ -221,36 +242,97 @@ const updateOrderStatus = async (req, res, next) => {
 };
 
 /**
- * GET /admin/export-orders
+ * PUT /update-bulk-status
  */
-const exportOrders = async (req, res, next) => {
+const updateBulkOrderStatus = async (req, res, next) => {
   try {
-    const orders = await Order.find()
-      .populate("book", "title price")
-      .populate("user", "username email")
-      .sort({ createdAt: -1 })
-      .lean();
+    const adminId = req.user.id;
+    const { orderIds, status } = req.body;
 
-    const fields = [
-      { label: "Order ID", value: "_id" },
-      { label: "Book", value: "book.title" },
-      { label: "Quantity", value: "quantity" },
-      { label: "Price Paid", value: "price" },
-      { label: "Customer", value: "user.username" },
-      { label: "Email", value: "user.email" },
-      { label: "Status", value: "status" },
-      { label: "Date", value: "createdAt" },
-    ];
+    if (!orderIds || orderIds.length === 0 || !status) {
+      return res.status(400).json({ message: "orderIds array and status are required" });
+    }
 
-    const json2csvParser = new Parser({ fields });
-    const csv = json2csvParser.parse(orders);
+    const orders = await Order.find({ _id: { $in: orderIds } }).populate("user").populate("book");
+    
+    const io = req.app.get("socketio");
 
-    res.header("Content-Type", "text/csv");
-    res.attachment("orders.csv");
-    return res.send(csv);
+    for (const order of orders) {
+      order.status = status;
+      order.statusHistory.push({ status, timestamp: new Date() });
+      await order.save();
+
+      if (order.user && order.user.email) {
+        const statusHtml = `
+          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
+            <h2 style="color: #2563eb;">Order Status Updated</h2>
+            <p>Your order for <b>${escapeHtml(order.book.title)}</b> is now: <span style="font-weight: bold; color: #1e40af;">${escapeHtml(status)}</span></p>
+          </div>
+        `;
+        emailQueue.add("sendEmail", {
+          to: order.user.email,
+          subject: `BookHeaven: Order ${status}`,
+          htmlContent: statusHtml,
+        });
+      }
+
+      if (io) {
+        io.to(order.user._id.toString()).emit(`orderStatusUpdate:${order.user._id}`, {
+          orderId: order._id,
+          title: order.book.title,
+          status: status,
+        });
+      }
+    }
+
+    await logAudit(adminId, "UPDATE_BULK_ORDER", "Order", orderIds.join(","), { newStatus: status });
+
+    return res.json({ status: "Success", message: `${orders.length} orders updated successfully` });
   } catch (error) {
     next(error);
   }
 };
 
-module.exports = { placeOrder, getOrderHistory, getAllOrders, updateOrderStatus, exportOrders };
+/**
+ * GET /admin/export-orders
+ */
+const exportOrders = async (req, res, next) => {
+  try {
+    res.header("Content-Type", "text/csv");
+    res.attachment("orders.csv");
+
+    const csvStream = fastcsv.format({ headers: true });
+    csvStream.pipe(res);
+
+    const cursor = Order.find()
+      .populate("book", "title price")
+      .populate("user", "username email")
+      .sort({ createdAt: -1 })
+      .cursor();
+
+    cursor.on("data", (order) => {
+      csvStream.write({
+        "Order ID": order._id.toString(),
+        "Book": order.book ? order.book.title : "N/A",
+        "Quantity": order.quantity,
+        "Price Paid": order.price,
+        "Customer": order.user ? order.user.username : "N/A",
+        "Email": order.user ? order.user.email : "N/A",
+        "Status": order.status,
+        "Date": order.createdAt.toISOString(),
+      });
+    });
+
+    cursor.on("end", () => {
+      csvStream.end();
+    });
+
+    cursor.on("error", (err) => {
+      next(err);
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { placeOrder, getOrderHistory, getAllOrders, updateOrderStatus, updateBulkOrderStatus, exportOrders };

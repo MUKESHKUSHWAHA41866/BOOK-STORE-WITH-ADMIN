@@ -69,7 +69,7 @@ const deleteBook = async (req, res, next) => {
     const adminId = req.user.id; // Corrected: Using token identity
     const { bookid } = req.headers;
     if (!bookid) return res.status(400).json({ message: "bookid header is required" });
-    const deleted = await Book.findByIdAndDelete(bookid);
+    const deleted = await Book.findByIdAndUpdate(bookid, { deletedAt: Date.now() }, { new: true });
     if (!deleted) return res.status(404).json({ message: "Book not found" });
 
     // Invalidate caches
@@ -104,7 +104,7 @@ const getRecentBooks = async (req, res, next) => {
     const cached = await getCache("recent_books");
     if (cached) return res.json({ status: "Success", data: cached, fromCache: true });
 
-    const books = await Book.find().sort({ createdAt: -1 }).limit(8).lean();
+    const books = await Book.find({ deletedAt: null }).sort({ createdAt: -1 }).limit(8).lean();
     await setCache("recent_books", books, 3600); // 1 hour cache
     return res.json({ status: "Success", data: books });
   } catch (error) {
@@ -148,11 +148,39 @@ const getRecommendations = async (req, res, next) => {
     const recommendations = await Book.find({
       _id: { $ne: id },
       genres: { $in: book.genres },
+      deletedAt: null,
     })
       .limit(4)
       .lean();
 
     return res.json({ status: "Success", data: recommendations });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Global Search for Navbar Autocomplete
+ */
+const globalSearch = async (req, res, next) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.trim().length === 0) {
+      return res.json({ status: "Success", data: [] });
+    }
+
+    const escaped = q.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped, "i");
+
+    const books = await Book.find({
+      deletedAt: null,
+      $or: [{ title: regex }, { author: regex }, { isbn: regex }]
+    })
+      .limit(6)
+      .select("title author url price")
+      .lean();
+
+    return res.json({ status: "Success", data: books });
   } catch (error) {
     next(error);
   }
@@ -167,5 +195,6 @@ module.exports = {
   getBookById,
   getFilterOptions,
   getRecommendations,
+  globalSearch,
   addBookValidation,
 };

@@ -38,7 +38,7 @@ const Navbar = () => {
     { title: "All Books", link: "/all-books", show: true },
     { title: "Cart", link: "/cart", show: isLoggedIn && role === "user" },
     { title: "Profile", link: "/profile", show: isLoggedIn && role === "user" },
-    { title: "Dashboard", link: "/admin/dashboard", show: isLoggedIn && role === "admin" },
+    { title: "Dashboard", link: "/profile/dashboard", show: isLoggedIn && role === "admin" },
     { title: "Admin", link: "/profile", show: isLoggedIn && role === "admin" },
   ].filter((l) => l.show);
 

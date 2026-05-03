@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { FaUserLarge, FaCheck } from "react-icons/fa6";
 import { IoOpenOutline } from "react-icons/io5";
+import { FiSearch, FiFilter } from "react-icons/fi";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { OrderTableSkeleton } from "../components/Skeleton/OrderRowSkeleton";
@@ -29,10 +30,14 @@ const AllOrders = () => {
   const [statusValue, setStatusValue] = useState("");
   const [showUser, setShowUser] = useState(false);
   const [userDivData, setUserDivData] = useState({});
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("All");
+  const [selectedOrders, setSelectedOrders] = useState([]);
+  const [bulkStatus, setBulkStatus] = useState("");
 
   const fetchOrders = async () => {
     try {
-      const response = await api.get("/api/v1/get-all-orders");
+      const response = await api.get(`/api/v1/get-all-orders?search=${search}&status=${filterStatus}`);
       setAllOrders(response.data.data);
     } catch {
       toast.error("Failed to load orders");
@@ -41,7 +46,7 @@ const AllOrders = () => {
     }
   };
 
-  useEffect(() => { fetchOrders(); }, []);
+  useEffect(() => { fetchOrders(); }, [search, filterStatus]);
 
   const submitStatusChange = async (index) => {
     if (!statusValue) { toast.error("Please select a status"); return; }
@@ -55,6 +60,29 @@ const AllOrders = () => {
     } catch {
       toast.error("Failed to update status");
     }
+  };
+
+  const handleBulkUpdate = async () => {
+    if (!bulkStatus) { toast.error("Please select a status for bulk update"); return; }
+    if (selectedOrders.length === 0) { toast.error("Please select orders to update"); return; }
+    try {
+      await api.put(`/api/v1/update-bulk-status`, { orderIds: selectedOrders, status: bulkStatus });
+      toast.success("Bulk order status updated");
+      setSelectedOrders([]);
+      setBulkStatus("");
+      fetchOrders();
+    } catch {
+      toast.error("Failed to perform bulk update");
+    }
+  };
+
+  const toggleSelectOrder = (id) => {
+    setSelectedOrders(prev => prev.includes(id) ? prev.filter(oId => oId !== id) : [...prev, id]);
+  };
+
+  const selectAllOrders = () => {
+    if (selectedOrders.length === allOrders.length) setSelectedOrders([]);
+    else setSelectedOrders(allOrders.map(o => o._id));
   };
 
   if (loading) {
@@ -97,9 +125,57 @@ const AllOrders = () => {
           </h1>
         </div>
 
+        {/* Filters and Bulk Actions */}
+        <div className="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex w-full md:w-auto gap-4">
+            <div className="relative w-full md:w-64">
+              <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <input
+                type="text"
+                placeholder="Search by User or Order ID"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl py-3 pl-10 pr-4 text-sm font-bold focus:outline-none focus:border-blue-500 shadow-sm"
+              />
+            </div>
+            <div className="relative w-full md:w-48">
+              <FiFilter className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="w-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl py-3 pl-10 pr-4 text-sm font-bold focus:outline-none focus:border-blue-500 shadow-sm appearance-none"
+              >
+                <option value="All">All Statuses</option>
+                {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex w-full md:w-auto gap-2 items-center bg-white dark:bg-zinc-800 p-2 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
+            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 px-2">{selectedOrders.length} Selected</span>
+            <select
+              value={bulkStatus}
+              onChange={(e) => setBulkStatus(e.target.value)}
+              className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl py-2 px-3 text-xs font-bold focus:outline-none focus:border-blue-500"
+            >
+              <option value="">Select Status</option>
+              {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <button
+              onClick={handleBulkUpdate}
+              disabled={selectedOrders.length === 0 || !bulkStatus}
+              className="bg-blue-600 hover:bg-blue-500 text-white font-black text-xs px-4 py-2 rounded-xl disabled:opacity-50 transition-all active:scale-95"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+
         <div className="space-y-4 max-w-7xl mx-auto">
           <div className="hidden md:flex items-center px-8 py-4 bg-white dark:bg-zinc-800 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 border border-zinc-100 dark:border-zinc-700 shadow-sm mb-6 transition-colors">
-            <div className="w-[5%] text-center">#</div>
+            <div className="w-[5%] text-center">
+              <input type="checkbox" onChange={selectAllOrders} checked={selectedOrders.length === allOrders.length && allOrders.length > 0} className="w-4 h-4 rounded" />
+            </div>
             <div className="w-[30%]">Product</div>
             <div className="w-[15%]">Price</div>
             <div className="w-[35%]">Logistics Status</div>
@@ -116,7 +192,9 @@ const AllOrders = () => {
                 layout
                 className="bg-white dark:bg-zinc-800 w-full rounded-2xl py-4 px-6 flex flex-wrap md:flex-nowrap items-center gap-4 border border-zinc-100 dark:border-zinc-700 transition-all duration-300 group shadow-sm hover:shadow-xl hover:border-blue-500/20"
               >
-                <div className="w-[5%] text-center text-zinc-300 dark:text-zinc-600 font-mono text-sm group-hover:text-blue-500 transition-colors">{String(i + 1).padStart(2, '0')}</div>
+                <div className="w-[5%] text-center flex justify-center">
+                  <input type="checkbox" checked={selectedOrders.includes(order._id)} onChange={() => toggleSelectOrder(order._id)} className="w-4 h-4 rounded cursor-pointer" />
+                </div>
 
                 <div className="w-full md:w-[30%]">
                   {order.book ? (

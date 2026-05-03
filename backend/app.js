@@ -69,6 +69,7 @@ process.on("uncaughtException", (error) => {
 });
 
 require("./connection/connection");
+require("./workers/email.worker");
 
 // ─── Route Imports ────────────────────────────────────────────────────────────
 const userRoutes = require("./routes/user");

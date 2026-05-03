@@ -19,7 +19,7 @@ const buildBookQuery = (queryParams) => {
     limit = 12,
   } = queryParams;
 
-  const filter = {};
+  const filter = { deletedAt: null };
 
   // Text search: use $or regex so it works alongside all other filters
   // (MongoDB $text index cannot be freely combined with $sort on other fields)

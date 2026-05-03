@@ -1,6 +1,6 @@
 const router = require("express").Router();
 const { authenticateToken, requireAdmin } = require("../middlewares/auth.middleware");
-const { placeOrder, getOrderHistory, getAllOrders, updateOrderStatus, exportOrders } = require("../controllers/order.controller");
+const { placeOrder, getOrderHistory, getAllOrders, updateOrderStatus, updateBulkOrderStatus, exportOrders } = require("../controllers/order.controller");
 
 // ─── User Routes ──────────────────────────────────────────────────────────────
 router.post("/place-order", authenticateToken, placeOrder);
@@ -10,5 +10,6 @@ router.get("/get-order-history", authenticateToken, getOrderHistory);
 router.get("/get-all-orders", authenticateToken, requireAdmin, getAllOrders);
 router.get("/export-orders", authenticateToken, requireAdmin, exportOrders);
 router.put("/update-status/:id", authenticateToken, requireAdmin, updateOrderStatus);
+router.put("/update-bulk-status", authenticateToken, requireAdmin, updateBulkOrderStatus);
 
 module.exports = router;
