@@ -4,6 +4,8 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 // ← Fix: import directly from the canonical auth middleware, not the legacy shim
 const { authenticateToken } = require("../middlewares/auth.middleware");
+const crypto = require("crypto");
+const { sendEmail } = require("../utils/mailer");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -20,8 +22,9 @@ router.post("/sign-up", async (req, res, next) => {
       return res.status(400).json({ message: "Username must be at least 4 characters" });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({ message: "Password must be at least 8 characters long and contain an uppercase, lowercase, number, and special character." });
     }
 
     const existingUsername = await User.findOne({ username });
@@ -39,6 +42,79 @@ router.post("/sign-up", async (req, res, next) => {
     await newUser.save();
 
     return res.status(201).json({ message: "Account created successfully" });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── Forgot Password ──────────────────────────────────────────────────────────
+router.post("/forgot-password", async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const hashToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+    user.resetPasswordToken = hashToken;
+    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 mins
+    await user.save();
+
+    const resetUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/reset-password/${resetToken}`;
+    const emailHtml = `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2>Password Reset</h2>
+        <p>You requested a password reset. Click the button below to set a new password:</p>
+        <a href="${resetUrl}" style="display:inline-block; padding:10px 20px; background-color:#2563eb; color:white; text-decoration:none; border-radius:5px;">Reset Password</a>
+        <p>If you didn't request this, please ignore this email.</p>
+        <p>This link is valid for 15 minutes.</p>
+      </div>
+    `;
+
+    const emailSent = await sendEmail(user.email, "Password Reset Request", emailHtml);
+    if (!emailSent) {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+      await user.save();
+      return res.status(500).json({ message: "Email could not be sent" });
+    }
+
+    res.status(200).json({ message: "Password reset link sent to your email" });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── Reset Password ───────────────────────────────────────────────────────────
+router.post("/reset-password/:token", async (req, res, next) => {
+  try {
+    const { password } = req.body;
+    const resetPasswordToken = crypto.createHash("sha256").update(req.params.token).digest("hex");
+
+    const user = await User.findOne({
+      resetPasswordToken,
+      resetPasswordExpire: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({ message: "Password must be at least 8 characters long and contain an uppercase, lowercase, number, and special character." });
+    }
+
+    const hashPass = await bcrypt.hash(password, 10);
+    user.password = hashPass;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+
+    res.status(200).json({ message: "Password has been successfully reset" });
   } catch (error) {
     next(error);
   }

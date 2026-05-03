@@ -15,6 +15,8 @@ const Home = lazy(() => import("./pages/Home"));
 const AllBooks = lazy(() => import("./pages/AllBooks"));
 const Login = lazy(() => import("./pages/Login"));
 const SignUp = lazy(() => import("./pages/SignUp"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Cart = lazy(() => import("./pages/Cart"));
 const Profile = lazy(() => import("./pages/Profile"));
 const AllOrders = lazy(() => import("./pages/AllOrders"));
@@ -72,6 +74,8 @@ const App = () => {
             <Route path="/view-book-details/:id" element={<ViewBookDetails />} />
             <Route path="/LogIn" element={<Login />} />
             <Route path="/SignUp" element={<SignUp />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password/:token" element={<ResetPassword />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
 
             {/* Protected: Authenticated Users Only */}

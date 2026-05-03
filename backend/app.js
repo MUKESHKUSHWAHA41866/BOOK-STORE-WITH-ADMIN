@@ -1,3 +1,18 @@
+require("dotenv").config();
+const Sentry = require("@sentry/node");
+const { nodeProfilingIntegration } = require("@sentry/profiling-node");
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    integrations: [
+      nodeProfilingIntegration(),
+    ],
+    tracesSampleRate: 1.0, 
+    profilesSampleRate: 1.0,
+  });
+}
+
 const express = require("express");
 const app = express();
 const http = require("http");
@@ -10,8 +25,16 @@ const io = new Server(server, {
   },
 });
 app.set("socketio", io);
+
+io.on("connection", (socket) => {
+  const userId = socket.handshake.query.userId;
+  if (userId && userId !== "undefined" && userId !== "null") {
+    socket.join(userId);
+    // logger.info(`Socket joined room: ${userId}`);
+  }
+});
+
 const cors = require("cors");
-require("dotenv").config();
 const logger = require("./utils/logger");
 
 // ─── Validate critical environment variables on startup ────────────────────────
@@ -61,26 +84,33 @@ const stripeRoutes = require("./routes/stripe");       // Phase 4 (NEW)
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 const morgan = require("morgan");
-const rateLimit = require("express-rate-limit");
+const { apiLimiter } = require("./middlewares/rateLimit.middleware");
 const compression = require("compression");
+const mongoSanitize = require("express-mongo-sanitize");
+
+// ─── Sentry Request Handler ───────────────────────────────────────────────────
+Sentry.setupExpressErrorHandler(app);
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(helmet());
 app.use(compression());
 app.use(morgan("combined", { stream: logger.stream }));
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // limit each IP to 1000 requests per windowMs (Increased for Dev)
-  message: "Too many requests from this IP, please try again after 15 minutes",
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use(limiter);
+app.use(apiLimiter);
+
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(",") 
+  : ["http://localhost:5173", "http://localhost:1000"];
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: function(origin, callback) {
+      if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization", "id", "bookid"],
@@ -96,6 +126,7 @@ app.post(
 
 app.use(express.json());
 app.use(cookieParser());
+app.use(mongoSanitize()); // Prevent NoSQL injection
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.use("/api/v1", userRoutes);

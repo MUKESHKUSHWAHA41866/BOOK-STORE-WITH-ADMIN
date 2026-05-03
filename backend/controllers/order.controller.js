@@ -3,6 +3,7 @@ const User = require("../models/user");
 const Book = require("../models/book");
 const { logAudit } = require("../utils/auditLogger");
 const { sendEmail } = require("../utils/mailer");
+const escapeHtml = require("escape-html");
 const Coupon = require("../models/coupon");
 const { Parser } = require("json2csv");
 
@@ -89,7 +90,7 @@ const placeOrder = async (req, res, next) => {
         statusHistory: [{ status: "Order Placed", timestamp: new Date() }],
       });
 
-      orderListHtml += `<li><b>${book.title}</b> x ${qty} - $${itemFinalPrice.toFixed(2)} ${discountPercent > 0 ? `(Discounted from $${itemTotalPrice})` : ""}</li>`;
+      orderListHtml += `<li><b>${escapeHtml(book.title)}</b> x ${qty} - $${itemFinalPrice.toFixed(2)} ${discountPercent > 0 ? `(Discounted from $${itemTotalPrice})` : ""}</li>`;
 
       bulkBookOps.push({
         updateOne: { filter: { _id: book._id }, update: { $inc: { stock: -qty } } }
@@ -110,7 +111,7 @@ const placeOrder = async (req, res, next) => {
     const emailHtml = `
       <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
         <h2 style="color: #2563eb;">Order Confirmed!</h2>
-        <p>Hi ${user.username}, thank you for shopping with BookHeaven.</p>
+        <p>Hi ${escapeHtml(user.username)}, thank you for shopping with BookHeaven.</p>
         <p>Your order has been placed successfully:</p>
         <ul>${orderListHtml}</ul>
         <p>We'll notify you when it's on the way!</p>
@@ -196,8 +197,8 @@ const updateOrderStatus = async (req, res, next) => {
       const statusHtml = `
         <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
           <h2 style="color: #2563eb;">Order Status Updated</h2>
-          <p>Your order for <b>${order.book.title}</b> is now: <span style="font-weight: bold; color: #1e40af;">${status}</span></p>
-          ${note ? `<p><b>Note:</b> ${note}</p>` : ""}
+          <p>Your order for <b>${escapeHtml(order.book.title)}</b> is now: <span style="font-weight: bold; color: #1e40af;">${escapeHtml(status)}</span></p>
+          ${note ? `<p><b>Note:</b> ${escapeHtml(note)}</p>` : ""}
           <p>Check your profile for more details.</p>
         </div>
       `;

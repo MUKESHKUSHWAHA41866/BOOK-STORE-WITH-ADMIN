@@ -5,6 +5,7 @@ const User = require("../models/user");
 const Coupon = require("../models/coupon");
 const { logAudit } = require("../utils/auditLogger");
 const { sendEmail } = require("../utils/mailer");
+const escapeHtml = require("escape-html");
 const logger = require("../utils/logger");
 
 /**
@@ -116,7 +117,7 @@ async function handleSuccessfulPayment(session) {
         statusHistory: [{ status: "Order Placed", timestamp: new Date(), note: "Paid via Stripe" }],
       });
 
-      orderListHtml += `<li><b>${book.title}</b> x ${qty} - ₹${itemFinalPrice.toFixed(2)}</li>`;
+      orderListHtml += `<li><b>${escapeHtml(book.title)}</b> x ${qty} - ₹${itemFinalPrice.toFixed(2)}</li>`;
 
       bulkBookOps.push({
         updateOne: { filter: { _id: book._id }, update: { $inc: { stock: -qty } } }
@@ -142,7 +143,7 @@ async function handleSuccessfulPayment(session) {
       const emailHtml = `
         <div style="font-family: sans-serif; padding: 20px;">
           <h2 style="color: #2563eb;">Payment Received!</h2>
-          <p>Hi ${user.username}, thank you for your purchase.</p>
+          <p>Hi ${escapeHtml(user.username)}, thank you for your purchase.</p>
           <p>Your order has been confirmed successfully:</p>
           <ul>${orderListHtml}</ul>
         </div>
